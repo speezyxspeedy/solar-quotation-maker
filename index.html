@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHREE GANESH SOLAR ENERGY - Solar Quotation Generator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="brand-block">
+                <img src="assets/logo.png" alt="SHREE GANESH SOLAR ENERGY logo">
+                <div>
+                    <strong>SHREE GANESH SOLAR ENERGY</strong>
+                    <span>Solar Quotation Generator</span>
+                </div>
+            </div>
+
+            <nav class="tab-nav" aria-label="Quotation tabs">
+                <button class="tab-button active" type="button" data-tab="details">Quotation Details</button>
+                <button class="tab-button" type="button" data-tab="specification">System Specification</button>
+                <button class="tab-button" type="button" data-tab="price">Price Details</button>
+                <button class="tab-button" type="button" data-tab="terms">Terms & Conditions</button>
+                <button class="tab-button" type="button" data-tab="preview">Preview</button>
+                <button class="tab-button" type="button" data-tab="history">History</button>
+            </nav>
+
+            <div class="sidebar-actions">
+                <button class="primary-action" type="button" id="sideGenerate">Generate Quotation</button>
+            </div>
+        </aside>
+
+        <main class="workspace">
+            <header class="topbar">
+                <div class="title-lockup">
+                    <img src="assets/logo.png" alt="Company logo">
+                    <div>
+                        <p>SHREE GANESH SOLAR ENERGY</p>
+                        <h1>Solar Quotation Generator</h1>
+                    </div>
+                </div>
+                <div class="quote-number-card">
+                    <span>Quotation No.</span>
+                    <strong id="quoteNumberDisplay">SGSE-2026-0001</strong>
+                </div>
+            </header>
+
+            <section class="summary-grid" aria-label="Quotation summary">
+                <div>
+                    <span>Customer</span>
+                    <strong id="summaryCustomer">-</strong>
+                </div>
+                <div>
+                    <span>Location</span>
+                    <strong id="summaryLocation">-</strong>
+                </div>
+                <div>
+                    <span>Capacity</span>
+                    <strong id="summaryCapacity">-</strong>
+                </div>
+                <div>
+                    <span>Final Price</span>
+                    <strong id="summaryPrice">Rs. 0</strong>
+                </div>
+            </section>
+
+            <form id="quotationForm">
+                <section class="tab-panel active" data-tab="details">
+                    <div class="panel-heading">
+                        <h2>Quotation Details</h2>
+                        <button class="secondary-action" type="button" id="newQuotation">New Quotation</button>
+                    </div>
+
+                    <div class="form-grid">
+                        <label>
+                            Quotation Number
+                            <input type="text" id="quotationNumber" readonly>
+                        </label>
+                        <label>
+                            Date
+                            <input type="date" id="quotationDate" required>
+                        </label>
+                        <label>
+                            Customer Name
+                            <input type="text" id="customerName" autocomplete="name" required>
+                        </label>
+                        <label>
+                            Location
+                            <input type="text" id="customerLocation" required>
+                        </label>
+                        <label>
+                            Capacity in kW
+                            <input type="number" id="capacityKw" min="0.1" step="0.1" required>
+                        </label>
+                        <label>
+                            Final Price
+                            <input type="number" id="finalPrice" min="0" step="1" required>
+                        </label>
+                        <label>
+                            Panel Brand
+                            <select id="panelBrand">
+                                <option value="Adani">Adani</option>
+                                <option value="Waaree">Waaree</option>
+                                <option value="UTL">UTL</option>
+                            </select>
+                        </label>
+                        <label>
+                            Inverter Brand
+                            <select id="inverterBrand">
+                                <option value="Polycab">Polycab</option>
+                                <option value="UTL">UTL</option>
+                                <option value="Selec">Selec</option>
+                                <option value="Sungrow">Sungrow</option>
+                            </select>
+                        </label>
+                    </div>
+
+                    <label>
+                        Remark if any
+                        <textarea id="remarkText" rows="3"></textarea>
+                    </label>
+
+                    <div class="action-row">
+                        <button class="primary-action" type="button" id="generateQuotation">Generate Quotation</button>
+                        <button class="secondary-action" type="button" data-go-tab="preview">Open Preview</button>
+                    </div>
+                </section>
+
+                <section class="tab-panel" data-tab="specification">
+                    <div class="panel-heading">
+                        <h2>System Specification</h2>
+                        <div class="inline-actions">
+                            <button class="secondary-action" type="button" id="addSpecRow">Add Row</button>
+                            <button class="secondary-action" type="button" id="resetSpecs">Reset Default</button>
+                        </div>
+                    </div>
+
+                    <div class="table-scroll">
+                        <table class="editable-table" id="specTable">
+                            <thead>
+                                <tr>
+                                    <th>ITEM</th>
+                                    <th>BRAND/PARAMETERS</th>
+                                    <th>DETAIL</th>
+                                    <th>SPECIFICATION</th>
+                                    <th>QUANTITY</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="specRows"></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="tab-panel" data-tab="price">
+                    <div class="panel-heading">
+                        <h2>Price Details</h2>
+                        <button class="secondary-action" type="button" id="resetPriceRows">Reset Default</button>
+                    </div>
+
+                    <div class="price-headline" id="priceHeaderText">0KW SANCTION AND 0KW PV MODULE</div>
+
+                    <div class="table-scroll">
+                        <table class="editable-table" id="priceTable">
+                            <thead>
+                                <tr>
+                                    <th>SR NO</th>
+                                    <th>SYSTEM DETAIL</th>
+                                    <th>RATE</th>
+                                </tr>
+                            </thead>
+                            <tbody id="priceRows"></tbody>
+                        </table>
+                    </div>
+
+                    <label>
+                        Price Note
+                        <textarea id="priceNote" rows="2">DEMAND CHARGES FOR LOAD EXTENSION OR REDUCTION IS NOT INCLUDED.</textarea>
+                    </label>
+                    <label>
+                        Payment Note
+                        <textarea id="paymentNote" rows="2">PAYMENT TERMS CAN BE ALTERED AS PER MUTUAL DECISION OF CLIENT AND COMPANY.</textarea>
+                    </label>
+                </section>
+
+                <section class="tab-panel" data-tab="terms">
+                    <div class="panel-heading">
+                        <h2>Terms & Conditions</h2>
+                        <div class="inline-actions">
+                            <button class="secondary-action" type="button" id="resetIntro">Reset Intro</button>
+                            <button class="secondary-action" type="button" id="resetTerms">Reset Terms</button>
+                        </div>
+                    </div>
+
+                    <label>
+                        Introduction Text
+                        <textarea id="introductionText" rows="12"></textarea>
+                    </label>
+                    <label>
+                        Terms & Conditions
+                        <textarea id="termsText" rows="16"></textarea>
+                    </label>
+                </section>
+
+                <section class="tab-panel" data-tab="preview">
+                    <div class="panel-heading">
+                        <h2>Preview</h2>
+                        <div class="inline-actions">
+                            <button class="secondary-action" type="button" id="downloadPdf">Download PDF</button>
+                            <button class="secondary-action" type="button" id="downloadWord">Download Word</button>
+                            <button class="secondary-action" type="button" id="downloadExcel">Download Excel</button>
+                            <button class="whatsapp-action" type="button" id="shareWhatsapp">WhatsApp</button>
+                        </div>
+                    </div>
+
+                    <div class="preview-stack" id="previewPages"></div>
+                </section>
+            </form>
+
+            <section class="tab-panel" data-tab="history">
+                <div class="panel-heading">
+                    <h2>Quotation History</h2>
+                    <button class="danger-action" type="button" id="clearHistory">Clear History</button>
+                </div>
+
+                <div class="table-scroll">
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th>Quotation Number</th>
+                                <th>Customer Name</th>
+                                <th>Location</th>
+                                <th>Capacity</th>
+                                <th>Final Price</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyRows">
+                            <tr><td colspan="7" class="empty-row">No quotations saved yet.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
