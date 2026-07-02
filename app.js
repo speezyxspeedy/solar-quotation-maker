@@ -15,6 +15,24 @@ const COMPANY = {
     branch: "DESHPANDE LAYOUT, NAGPUR"
 };
 
+const INVOICE_COUNTER_KEY = "sgse_invoice_counter_v1";
+const SELLER_SETTINGS_KEY = "sgse_invoice_seller_settings_v1";
+
+const DEFAULT_SELLER = {
+    name: "SHREE GANESH SOLAR ENERGY",
+    address: "Ground, Plot No 1764/29, C/O Mitaram Bhude, Bhandewadi Pardi, Near Hanuman Mandir, Hanuman Nagar, Nagpur",
+    gstin: "27DSQPB6025M1ZC",
+    state: "Maharashtra",
+    state_code: "27"
+};
+
+const DEFAULT_INVOICE_DECLARATION = "We declare that this invoice shows the actual price of the goods and services described and that all particulars are true and correct.";
+const DEFAULT_TAX_RATES = {
+    cgst: 9,
+    sgst: 9,
+    igst: 18
+};
+
 const DEFAULT_INTRODUCTION = `SHREE GANESH SOLAR ENERGY is a Govt. of India recognized solar energy solution provider. We provide On-Grid, Off-Grid, Hybrid & all kinds of solar solutions.
 Our main goal is to provide simple & smart solar solutions at reasonable rates to our customers.
 Our company is led by highly qualified & experienced professionals, who are expert in providing solutions on turnkey basis for solar power plant.
@@ -92,7 +110,78 @@ const els = {
     clearHistory: document.getElementById("clearHistory")
 };
 
+const invoiceEls = {
+    form: document.getElementById("invoiceForm"),
+    invoiceNumberDisplay: document.getElementById("invoiceNumberDisplay"),
+    invoiceSummaryBuyer: document.getElementById("invoiceSummaryBuyer"),
+    invoiceSummaryDate: document.getElementById("invoiceSummaryDate"),
+    invoiceSummaryQty: document.getElementById("invoiceSummaryQty"),
+    invoiceSummaryTotal: document.getElementById("invoiceSummaryTotal"),
+    invoiceDbStatus: document.getElementById("invoiceDbStatus"),
+    newInvoice: document.getElementById("newInvoice"),
+    saveInvoice: document.getElementById("saveInvoice"),
+    printInvoice: document.getElementById("printInvoice"),
+    downloadInvoicePdf: document.getElementById("downloadInvoicePdf"),
+    saveSellerDefaults: document.getElementById("saveSellerDefaults"),
+    sellerCompanyName: document.getElementById("sellerCompanyName"),
+    sellerAddress: document.getElementById("sellerAddress"),
+    sellerGstin: document.getElementById("sellerGstin"),
+    sellerState: document.getElementById("sellerState"),
+    sellerStateCode: document.getElementById("sellerStateCode"),
+    useIgst: document.getElementById("useIgst"),
+    invoiceNo: document.getElementById("invoiceNo"),
+    invoiceDate: document.getElementById("invoiceDate"),
+    deliveryNote: document.getElementById("deliveryNote"),
+    invoicePaymentTerms: document.getElementById("invoicePaymentTerms"),
+    dispatchThrough: document.getElementById("dispatchThrough"),
+    destination: document.getElementById("destination"),
+    vehicleNo: document.getElementById("vehicleNo"),
+    termsOfDelivery: document.getElementById("termsOfDelivery"),
+    cgstRate: document.getElementById("cgstRate"),
+    sgstRate: document.getElementById("sgstRate"),
+    igstRate: document.getElementById("igstRate"),
+    buyerName: document.getElementById("buyerName"),
+    buyerAddress: document.getElementById("buyerAddress"),
+    buyerGstin: document.getElementById("buyerGstin"),
+    buyerState: document.getElementById("buyerState"),
+    buyerStateCode: document.getElementById("buyerStateCode"),
+    shipToName: document.getElementById("shipToName"),
+    shipToAddress: document.getElementById("shipToAddress"),
+    shipToGstin: document.getElementById("shipToGstin"),
+    shipToState: document.getElementById("shipToState"),
+    shipToStateCode: document.getElementById("shipToStateCode"),
+    invoiceItemRows: document.getElementById("invoiceItemRows"),
+    addInvoiceRow: document.getElementById("addInvoiceRow"),
+    invoiceTaxSummaryRows: document.getElementById("invoiceTaxSummaryRows"),
+    invoiceTotalQuantity: document.getElementById("invoiceTotalQuantity"),
+    invoiceTaxCgstHeader: document.getElementById("invoiceTaxCgstHeader"),
+    invoiceTaxSgstHeader: document.getElementById("invoiceTaxSgstHeader"),
+    invoiceTaxIgstHeader: document.getElementById("invoiceTaxIgstHeader"),
+    invoiceSubtotal: document.getElementById("invoiceSubtotal"),
+    invoiceCgstLabel: document.getElementById("invoiceCgstLabel"),
+    invoiceSgstLabel: document.getElementById("invoiceSgstLabel"),
+    invoiceIgstLabel: document.getElementById("invoiceIgstLabel"),
+    invoiceCgst: document.getElementById("invoiceCgst"),
+    invoiceSgst: document.getElementById("invoiceSgst"),
+    invoiceIgst: document.getElementById("invoiceIgst"),
+    invoiceRoundOff: document.getElementById("invoiceRoundOff"),
+    invoiceGrandTotal: document.getElementById("invoiceGrandTotal"),
+    invoiceAmountWords: document.getElementById("invoiceAmountWords"),
+    invoiceAccountHolder: document.getElementById("invoiceAccountHolder"),
+    invoiceBankName: document.getElementById("invoiceBankName"),
+    invoiceAccountNo: document.getElementById("invoiceAccountNo"),
+    invoiceIfsc: document.getElementById("invoiceIfsc"),
+    invoiceBranch: document.getElementById("invoiceBranch"),
+    invoiceDeclaration: document.getElementById("invoiceDeclaration"),
+    invoicePreview: document.getElementById("invoicePreview"),
+    refreshInvoiceHistory: document.getElementById("refreshInvoiceHistory"),
+    invoiceHistoryRows: document.getElementById("invoiceHistoryRows")
+};
+
 let currentQuotationId = null;
+let currentInvoiceId = null;
+let invoiceHistoryLoaded = false;
+let invoiceHistoryCache = [];
 
 function todayIso() {
     return new Date().toISOString().slice(0, 10);
@@ -675,6 +764,736 @@ ${COMPANY.name}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
 }
 
+function round2(value) {
+    return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
+}
+
+function numberValue(value) {
+    const number = Number(String(value || "").replace(/[^0-9.-]/g, ""));
+    return Number.isFinite(number) ? number : 0;
+}
+
+function taxRateValue(value, fallback) {
+    const raw = String(value ?? "").trim();
+    if (!raw) return fallback;
+    const rate = Number(raw.replace(/[^0-9.-]/g, ""));
+    return Number.isFinite(rate) && rate >= 0 ? rate : fallback;
+}
+
+function currentTaxRates() {
+    return {
+        cgst: taxRateValue(invoiceEls.cgstRate.value, DEFAULT_TAX_RATES.cgst),
+        sgst: taxRateValue(invoiceEls.sgstRate.value, DEFAULT_TAX_RATES.sgst),
+        igst: taxRateValue(invoiceEls.igstRate.value, DEFAULT_TAX_RATES.igst)
+    };
+}
+
+function formatTaxRate(rate) {
+    return round2(rate).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+}
+
+function taxLabel(label, rate) {
+    return `${label} ${formatTaxRate(rate)}%`;
+}
+
+function formatInvoiceMoney(value) {
+    return `Rs. ${round2(value).toLocaleString("en-IN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    })}`;
+}
+
+function safeFileName(value) {
+    return String(value || "invoice").replace(/[\\/:*?"<>|]+/g, "-");
+}
+
+function nextInvoiceNumber() {
+    const next = Number(localStorage.getItem(INVOICE_COUNTER_KEY) || "0") + 1;
+    localStorage.setItem(INVOICE_COUNTER_KEY, String(next));
+    return `SGSE/INV/${currentYear()}/${String(next).padStart(4, "0")}`;
+}
+
+const WORDS_UNDER_TWENTY = [
+    "Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+    "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
+    "Seventeen", "Eighteen", "Nineteen"
+];
+const WORDS_TENS = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+
+function wordsBelowThousand(number) {
+    const n = Math.floor(number);
+    const parts = [];
+    if (n >= 100) {
+        parts.push(`${WORDS_UNDER_TWENTY[Math.floor(n / 100)]} Hundred`);
+    }
+    const rest = n % 100;
+    if (rest >= 20) {
+        const tens = WORDS_TENS[Math.floor(rest / 10)];
+        const ones = rest % 10 ? ` ${WORDS_UNDER_TWENTY[rest % 10]}` : "";
+        parts.push(`${tens}${ones}`);
+    } else if (rest > 0 || !parts.length) {
+        parts.push(WORDS_UNDER_TWENTY[rest]);
+    }
+    return parts.join(" ");
+}
+
+function numberToIndianWords(number) {
+    let n = Math.floor(Math.abs(number));
+    if (n === 0) return "Zero";
+
+    const units = [
+        ["Crore", 10000000],
+        ["Lakh", 100000],
+        ["Thousand", 1000],
+        ["", 1]
+    ];
+    const parts = [];
+    for (const [label, divisor] of units) {
+        const chunk = Math.floor(n / divisor);
+        if (!chunk) continue;
+        parts.push(`${wordsBelowThousand(chunk)}${label ? ` ${label}` : ""}`);
+        n %= divisor;
+    }
+    return parts.join(" ");
+}
+
+function amountToWords(value) {
+    const total = round2(value);
+    const rupees = Math.floor(Math.abs(total));
+    const paise = Math.round((Math.abs(total) - rupees) * 100);
+    const prefix = total < 0 ? "Minus " : "";
+    const paiseText = paise ? ` and ${numberToIndianWords(paise)} Paise` : "";
+    return `${prefix}Rupees ${numberToIndianWords(rupees)}${paiseText} Only`;
+}
+
+function invoiceLineBreaks(value = "") {
+    return escapeHtml(value).replace(/\n/g, "<br>");
+}
+
+function setInvoiceStatus(message = "", type = "") {
+    invoiceEls.invoiceDbStatus.textContent = message;
+    invoiceEls.invoiceDbStatus.className = `status-line ${type}`.trim();
+}
+
+function sellerDefaults() {
+    try {
+        return { ...DEFAULT_SELLER, ...JSON.parse(localStorage.getItem(SELLER_SETTINGS_KEY) || "{}") };
+    } catch {
+        return { ...DEFAULT_SELLER };
+    }
+}
+
+function applySellerDefaults() {
+    const seller = sellerDefaults();
+    invoiceEls.sellerCompanyName.value = seller.name || DEFAULT_SELLER.name;
+    invoiceEls.sellerAddress.value = seller.address || DEFAULT_SELLER.address;
+    invoiceEls.sellerGstin.value = seller.gstin || DEFAULT_SELLER.gstin;
+    invoiceEls.sellerState.value = seller.state || DEFAULT_SELLER.state;
+    invoiceEls.sellerStateCode.value = seller.state_code || DEFAULT_SELLER.state_code;
+}
+
+function saveSellerDefaults() {
+    localStorage.setItem(SELLER_SETTINGS_KEY, JSON.stringify({
+        name: invoiceEls.sellerCompanyName.value.trim() || DEFAULT_SELLER.name,
+        address: invoiceEls.sellerAddress.value.trim() || DEFAULT_SELLER.address,
+        gstin: invoiceEls.sellerGstin.value.trim() || DEFAULT_SELLER.gstin,
+        state: invoiceEls.sellerState.value.trim() || DEFAULT_SELLER.state,
+        state_code: invoiceEls.sellerStateCode.value.trim() || DEFAULT_SELLER.state_code
+    }));
+    setInvoiceStatus("Seller defaults saved.", "success");
+}
+
+function defaultInvoiceRows() {
+    return [
+        {
+            sl_no: "1",
+            description: "Solar Power Plant",
+            hsn_sac: "8541",
+            quantity: 1,
+            unit: "SET",
+            rate: 0,
+            amount: 0
+        }
+    ];
+}
+
+function createInvoiceRow(row = {}) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+        <td><input type="text" data-field="sl_no" value="${escapeHtml(row.sl_no || "")}" aria-label="Serial number"></td>
+        <td><input type="text" data-field="description" value="${escapeHtml(row.description || "")}" aria-label="Description"></td>
+        <td><input type="text" data-field="hsn_sac" value="${escapeHtml(row.hsn_sac || "")}" aria-label="HSN or SAC"></td>
+        <td><input type="number" min="0" step="0.01" data-field="quantity" value="${escapeHtml(row.quantity ?? 0)}" aria-label="Quantity"></td>
+        <td><input type="text" data-field="unit" value="${escapeHtml(row.unit || "")}" aria-label="Unit"></td>
+        <td><input type="number" min="0" step="0.01" data-field="rate" value="${escapeHtml(row.rate ?? 0)}" aria-label="Rate"></td>
+        <td><input type="text" data-field="amount" value="${round2(row.amount || 0).toFixed(2)}" aria-label="Amount" readonly></td>
+        <td><button class="row-remove" type="button">Delete</button></td>
+    `;
+    invoiceEls.invoiceItemRows.appendChild(tr);
+}
+
+function renderInvoiceRows(rows = defaultInvoiceRows()) {
+    invoiceEls.invoiceItemRows.innerHTML = "";
+    rows.forEach(createInvoiceRow);
+}
+
+function invoiceRowInputs(row) {
+    return {
+        sl_no: row.querySelector('[data-field="sl_no"]'),
+        description: row.querySelector('[data-field="description"]'),
+        hsn_sac: row.querySelector('[data-field="hsn_sac"]'),
+        quantity: row.querySelector('[data-field="quantity"]'),
+        unit: row.querySelector('[data-field="unit"]'),
+        rate: row.querySelector('[data-field="rate"]'),
+        amount: row.querySelector('[data-field="amount"]')
+    };
+}
+
+function syncInvoiceRowAmounts() {
+    [...invoiceEls.invoiceItemRows.querySelectorAll("tr")].forEach((row, index) => {
+        const inputs = invoiceRowInputs(row);
+        if (!inputs.sl_no.value.trim()) inputs.sl_no.value = String(index + 1);
+        const amount = round2(numberValue(inputs.quantity.value) * numberValue(inputs.rate.value));
+        inputs.amount.value = amount.toFixed(2);
+    });
+}
+
+function collectInvoiceItems() {
+    return [...invoiceEls.invoiceItemRows.querySelectorAll("tr")]
+        .map(row => {
+            const inputs = invoiceRowInputs(row);
+            return {
+                sl_no: inputs.sl_no.value.trim(),
+                description: inputs.description.value.trim(),
+                hsn_sac: inputs.hsn_sac.value.trim(),
+                quantity: numberValue(inputs.quantity.value),
+                unit: inputs.unit.value.trim(),
+                rate: numberValue(inputs.rate.value),
+                amount: numberValue(inputs.amount.value)
+            };
+        })
+        .filter(row => row.description || row.hsn_sac || row.quantity || row.rate || row.amount);
+}
+
+function calculateInvoiceTotals(items, useIgst, rates) {
+    const subtotal = round2(items.reduce((sum, item) => sum + item.amount, 0));
+    const totalQuantity = round2(items.reduce((sum, item) => sum + item.quantity, 0));
+    const cgstRate = taxRateValue(rates?.cgst, DEFAULT_TAX_RATES.cgst);
+    const sgstRate = taxRateValue(rates?.sgst, DEFAULT_TAX_RATES.sgst);
+    const igstRate = taxRateValue(rates?.igst, DEFAULT_TAX_RATES.igst);
+    const cgst = useIgst ? 0 : round2(subtotal * (cgstRate / 100));
+    const sgst = useIgst ? 0 : round2(subtotal * (sgstRate / 100));
+    const igst = useIgst ? round2(subtotal * (igstRate / 100)) : 0;
+    const rawTotal = round2(subtotal + cgst + sgst + igst);
+    const grandTotal = Math.round(rawTotal);
+    const roundOff = round2(grandTotal - rawTotal);
+    const grouped = new Map();
+
+    items.forEach(item => {
+        const key = item.hsn_sac || "-";
+        grouped.set(key, (grouped.get(key) || 0) + item.amount);
+    });
+
+    const taxSummary = [...grouped.entries()].map(([hsnSac, taxable]) => {
+        const rowCgst = useIgst ? 0 : round2(taxable * (cgstRate / 100));
+        const rowSgst = useIgst ? 0 : round2(taxable * (sgstRate / 100));
+        const rowIgst = useIgst ? round2(taxable * (igstRate / 100)) : 0;
+        return {
+            hsn_sac: hsnSac,
+            taxable_value: round2(taxable),
+            cgst: rowCgst,
+            sgst: rowSgst,
+            igst: rowIgst,
+            total_tax: round2(rowCgst + rowSgst + rowIgst)
+        };
+    });
+
+    return { subtotal, totalQuantity, cgst, sgst, igst, roundOff, grandTotal, taxSummary };
+}
+
+function invoiceParty(name, address, gstin, state, stateCode) {
+    return {
+        name: name.value.trim(),
+        address: address.value.trim(),
+        gstin: gstin.value.trim(),
+        state: state.value.trim(),
+        state_code: stateCode.value.trim()
+    };
+}
+
+function buildInvoiceDraft() {
+    syncInvoiceRowAmounts();
+    const items = collectInvoiceItems();
+    const useIgst = invoiceEls.useIgst.checked;
+    const rates = currentTaxRates();
+    const totals = calculateInvoiceTotals(items, useIgst, rates);
+    const buyer = invoiceParty(
+        invoiceEls.buyerName,
+        invoiceEls.buyerAddress,
+        invoiceEls.buyerGstin,
+        invoiceEls.buyerState,
+        invoiceEls.buyerStateCode
+    );
+    const shipTo = {
+        name: invoiceEls.shipToName.value.trim() || buyer.name,
+        address: invoiceEls.shipToAddress.value.trim() || buyer.address,
+        gstin: invoiceEls.shipToGstin.value.trim() || buyer.gstin,
+        state: invoiceEls.shipToState.value.trim() || buyer.state,
+        state_code: invoiceEls.shipToStateCode.value.trim() || buyer.state_code
+    };
+
+    return {
+        id: currentInvoiceId || "",
+        invoice_no: invoiceEls.invoiceNo.value.trim(),
+        invoice_date: invoiceEls.invoiceDate.value,
+        seller: invoiceParty(
+            invoiceEls.sellerCompanyName,
+            invoiceEls.sellerAddress,
+            invoiceEls.sellerGstin,
+            invoiceEls.sellerState,
+            invoiceEls.sellerStateCode
+        ),
+        buyer,
+        ship_to: shipTo,
+        delivery_note: invoiceEls.deliveryNote.value.trim(),
+        payment_terms: invoiceEls.invoicePaymentTerms.value.trim(),
+        dispatch_through: invoiceEls.dispatchThrough.value.trim(),
+        destination: invoiceEls.destination.value.trim(),
+        vehicle_no: invoiceEls.vehicleNo.value.trim(),
+        terms_of_delivery: invoiceEls.termsOfDelivery.value.trim(),
+        items,
+        use_igst: useIgst,
+        cgst_rate: rates.cgst,
+        sgst_rate: rates.sgst,
+        igst_rate: rates.igst,
+        subtotal: totals.subtotal,
+        cgst: totals.cgst,
+        sgst: totals.sgst,
+        igst: totals.igst,
+        round_off: totals.roundOff,
+        grand_total: totals.grandTotal,
+        total_quantity: totals.totalQuantity,
+        amount_in_words: amountToWords(totals.grandTotal),
+        tax_summary: totals.taxSummary,
+        bank_details: {
+            account_holder: invoiceEls.invoiceAccountHolder.value.trim(),
+            bank_name: invoiceEls.invoiceBankName.value.trim(),
+            account_no: invoiceEls.invoiceAccountNo.value.trim(),
+            ifsc: invoiceEls.invoiceIfsc.value.trim(),
+            branch: invoiceEls.invoiceBranch.value.trim()
+        },
+        declaration: invoiceEls.invoiceDeclaration.value.trim()
+    };
+}
+
+function renderInvoiceTaxSummary(rows) {
+    if (!rows.length) {
+        invoiceEls.invoiceTaxSummaryRows.innerHTML = `<tr><td colspan="6" class="empty-row">No item rows.</td></tr>`;
+        return;
+    }
+
+    invoiceEls.invoiceTaxSummaryRows.innerHTML = rows.map(row => `
+        <tr>
+            <td>${escapeHtml(row.hsn_sac || "-")}</td>
+            <td>${formatInvoiceMoney(row.taxable_value)}</td>
+            <td>${formatInvoiceMoney(row.cgst)}</td>
+            <td>${formatInvoiceMoney(row.sgst)}</td>
+            <td>${formatInvoiceMoney(row.igst)}</td>
+            <td>${formatInvoiceMoney(row.total_tax)}</td>
+        </tr>
+    `).join("");
+}
+
+function renderInvoiceItemsPreview(items) {
+    if (!items.length) {
+        return `<tr><td colspan="7" class="empty-row">No item rows.</td></tr>`;
+    }
+
+    return items.map((item, index) => `
+        <tr>
+            <td>${escapeHtml(item.sl_no || String(index + 1))}</td>
+            <td>${escapeHtml(item.description || "-")}</td>
+            <td>${escapeHtml(item.hsn_sac || "-")}</td>
+            <td>${escapeHtml(String(item.quantity || 0))}</td>
+            <td>${escapeHtml(item.unit || "-")}</td>
+            <td>${formatInvoiceMoney(item.rate)}</td>
+            <td>${formatInvoiceMoney(item.amount)}</td>
+        </tr>
+    `).join("");
+}
+
+function renderInvoiceTaxPreview(rows) {
+    if (!rows.length) {
+        return `<tr><td colspan="6" class="empty-row">No tax summary.</td></tr>`;
+    }
+
+    return rows.map(row => `
+        <tr>
+            <td>${escapeHtml(row.hsn_sac || "-")}</td>
+            <td>${formatInvoiceMoney(row.taxable_value)}</td>
+            <td>${formatInvoiceMoney(row.cgst)}</td>
+            <td>${formatInvoiceMoney(row.sgst)}</td>
+            <td>${formatInvoiceMoney(row.igst)}</td>
+            <td>${formatInvoiceMoney(row.total_tax)}</td>
+        </tr>
+    `).join("");
+}
+
+function renderInvoicePreview(invoice) {
+    const cgstLabel = taxLabel("CGST", taxRateValue(invoice.cgst_rate, DEFAULT_TAX_RATES.cgst));
+    const sgstLabel = taxLabel("SGST", taxRateValue(invoice.sgst_rate, DEFAULT_TAX_RATES.sgst));
+    const igstLabel = taxLabel("IGST", taxRateValue(invoice.igst_rate, DEFAULT_TAX_RATES.igst));
+
+    invoiceEls.invoicePreview.innerHTML = `
+        <article class="invoice-sheet">
+            <header class="invoice-sheet-header">
+                <h2>${escapeHtml(invoice.seller.name || DEFAULT_SELLER.name)}</h2>
+                <p>TAX INVOICE / SOLAR INVOICE</p>
+            </header>
+
+            <section class="invoice-head-grid">
+                <div class="invoice-seller-box">
+                    <strong>${escapeHtml(invoice.seller.name || DEFAULT_SELLER.name)}</strong>
+                    <span>${invoiceLineBreaks(invoice.seller.address || DEFAULT_SELLER.address)}</span>
+                    <span>GSTIN/UIN: ${escapeHtml(invoice.seller.gstin || DEFAULT_SELLER.gstin)}</span>
+                    <span>State: ${escapeHtml(invoice.seller.state || DEFAULT_SELLER.state)} &nbsp; Code: ${escapeHtml(invoice.seller.state_code || DEFAULT_SELLER.state_code)}</span>
+                </div>
+                <table class="invoice-print-table invoice-meta-table">
+                    <tbody>
+                        <tr><th>Invoice No</th><td>${escapeHtml(invoice.invoice_no || "-")}</td></tr>
+                        <tr><th>Date</th><td>${escapeHtml(invoice.invoice_date || "-")}</td></tr>
+                        <tr><th>Delivery Note</th><td>${escapeHtml(invoice.delivery_note || "-")}</td></tr>
+                        <tr><th>Payment Terms</th><td>${escapeHtml(invoice.payment_terms || "-")}</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section class="invoice-party-grid">
+                <div>
+                    <h3>Buyer (Bill To)</h3>
+                    <strong>${escapeHtml(invoice.buyer.name || "-")}</strong>
+                    <span>${invoiceLineBreaks(invoice.buyer.address || "-")}</span>
+                    <span>GSTIN: ${escapeHtml(invoice.buyer.gstin || "-")}</span>
+                    <span>State: ${escapeHtml(invoice.buyer.state || "-")} &nbsp; Code: ${escapeHtml(invoice.buyer.state_code || "-")}</span>
+                </div>
+                <div>
+                    <h3>Ship To</h3>
+                    <strong>${escapeHtml(invoice.ship_to.name || "-")}</strong>
+                    <span>${invoiceLineBreaks(invoice.ship_to.address || "-")}</span>
+                    <span>GSTIN: ${escapeHtml(invoice.ship_to.gstin || "-")}</span>
+                    <span>State: ${escapeHtml(invoice.ship_to.state || "-")} &nbsp; Code: ${escapeHtml(invoice.ship_to.state_code || "-")}</span>
+                </div>
+            </section>
+
+            <table class="invoice-print-table">
+                <tbody>
+                    <tr>
+                        <th>Dispatch Through</th><td>${escapeHtml(invoice.dispatch_through || "-")}</td>
+                        <th>Destination</th><td>${escapeHtml(invoice.destination || "-")}</td>
+                    </tr>
+                    <tr>
+                        <th>Vehicle No</th><td>${escapeHtml(invoice.vehicle_no || "-")}</td>
+                        <th>Terms of Delivery</th><td>${escapeHtml(invoice.terms_of_delivery || "-")}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <table class="invoice-print-table invoice-line-table">
+                <thead>
+                    <tr>
+                        <th>Sl No</th>
+                        <th>Description</th>
+                        <th>HSN/SAC</th>
+                        <th>Quantity</th>
+                        <th>Unit</th>
+                        <th>Rate</th>
+                        <th>Amount</th>
+                    </tr>
+                </thead>
+                <tbody>${renderInvoiceItemsPreview(invoice.items)}</tbody>
+            </table>
+
+            <section class="invoice-bottom-grid">
+                <div>
+                    <table class="invoice-print-table">
+                        <thead>
+                            <tr>
+                                <th>HSN/SAC</th>
+                                <th>Taxable Value</th>
+                                <th>${cgstLabel}</th>
+                                <th>${sgstLabel}</th>
+                                <th>${igstLabel}</th>
+                                <th>Total Tax</th>
+                            </tr>
+                        </thead>
+                        <tbody>${renderInvoiceTaxPreview(invoice.tax_summary)}</tbody>
+                    </table>
+                    <div class="invoice-words">
+                        <strong>Amount in Words</strong>
+                        <span>${escapeHtml(invoice.amount_in_words)}</span>
+                    </div>
+                </div>
+                <table class="invoice-print-table invoice-total-table">
+                    <tbody>
+                        <tr><th>Total Quantity</th><td>${escapeHtml(String(invoice.total_quantity))}</td></tr>
+                        <tr><th>Subtotal</th><td>${formatInvoiceMoney(invoice.subtotal)}</td></tr>
+                        <tr><th>${cgstLabel}</th><td>${formatInvoiceMoney(invoice.cgst)}</td></tr>
+                        <tr><th>${sgstLabel}</th><td>${formatInvoiceMoney(invoice.sgst)}</td></tr>
+                        <tr><th>${igstLabel}</th><td>${formatInvoiceMoney(invoice.igst)}</td></tr>
+                        <tr><th>Round Off</th><td>${formatInvoiceMoney(invoice.round_off)}</td></tr>
+                        <tr class="grand-row"><th>Grand Total</th><td>${formatInvoiceMoney(invoice.grand_total)}</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section class="invoice-bank-grid">
+                <div>
+                    <h3>Bank Details</h3>
+                    <p><strong>Account Holder:</strong> ${escapeHtml(invoice.bank_details.account_holder || "-")}</p>
+                    <p><strong>Bank Name:</strong> ${escapeHtml(invoice.bank_details.bank_name || "-")}</p>
+                    <p><strong>Account No:</strong> ${escapeHtml(invoice.bank_details.account_no || "-")}</p>
+                    <p><strong>IFSC:</strong> ${escapeHtml(invoice.bank_details.ifsc || "-")}</p>
+                    <p><strong>Branch:</strong> ${escapeHtml(invoice.bank_details.branch || "-")}</p>
+                </div>
+                <div>
+                    <h3>Declaration</h3>
+                    <p>${escapeHtml(invoice.declaration || DEFAULT_INVOICE_DECLARATION)}</p>
+                    <strong class="invoice-signature">For ${escapeHtml(invoice.seller.name || DEFAULT_SELLER.name)}<br>Authorised Signatory</strong>
+                </div>
+            </section>
+        </article>
+    `;
+}
+
+function updateInvoiceUi() {
+    const invoice = buildInvoiceDraft();
+    const cgstLabel = taxLabel("CGST", invoice.cgst_rate);
+    const sgstLabel = taxLabel("SGST", invoice.sgst_rate);
+    const igstLabel = taxLabel("IGST", invoice.igst_rate);
+    invoiceEls.invoiceNumberDisplay.textContent = invoice.invoice_no || "-";
+    invoiceEls.invoiceSummaryBuyer.textContent = invoice.buyer.name || "-";
+    invoiceEls.invoiceSummaryDate.textContent = invoice.invoice_date || "-";
+    invoiceEls.invoiceSummaryQty.textContent = String(invoice.total_quantity);
+    invoiceEls.invoiceSummaryTotal.textContent = formatInvoiceMoney(invoice.grand_total);
+    invoiceEls.invoiceTaxCgstHeader.textContent = cgstLabel;
+    invoiceEls.invoiceTaxSgstHeader.textContent = sgstLabel;
+    invoiceEls.invoiceTaxIgstHeader.textContent = igstLabel;
+    invoiceEls.invoiceTotalQuantity.value = String(invoice.total_quantity);
+    invoiceEls.invoiceSubtotal.value = formatInvoiceMoney(invoice.subtotal);
+    invoiceEls.invoiceCgstLabel.textContent = cgstLabel;
+    invoiceEls.invoiceSgstLabel.textContent = sgstLabel;
+    invoiceEls.invoiceIgstLabel.textContent = igstLabel;
+    invoiceEls.invoiceCgst.value = formatInvoiceMoney(invoice.cgst);
+    invoiceEls.invoiceSgst.value = formatInvoiceMoney(invoice.sgst);
+    invoiceEls.invoiceIgst.value = formatInvoiceMoney(invoice.igst);
+    invoiceEls.invoiceRoundOff.value = formatInvoiceMoney(invoice.round_off);
+    invoiceEls.invoiceGrandTotal.value = formatInvoiceMoney(invoice.grand_total);
+    invoiceEls.invoiceAmountWords.value = invoice.amount_in_words;
+    renderInvoiceTaxSummary(invoice.tax_summary);
+    renderInvoicePreview(invoice);
+    return invoice;
+}
+
+async function invoiceApi(endpoint, options = {}) {
+    let lastError = null;
+    for (const baseUrl of apiCandidates()) {
+        try {
+            const response = await fetch(`${baseUrl}/${endpoint}`, options);
+            if (response.ok) return response;
+            const details = await response.text();
+            lastError = new Error(`${endpoint} failed with status ${response.status}: ${details.slice(0, 180)}`);
+        } catch (error) {
+            lastError = error;
+        }
+    }
+    throw lastError || new Error(`${endpoint} failed`);
+}
+
+async function saveInvoiceToDatabase({ silent = false } = {}) {
+    if (!invoiceEls.form.reportValidity()) return null;
+    if (!currentInvoiceId) currentInvoiceId = makeId();
+    const invoice = buildInvoiceDraft();
+    invoice.id = currentInvoiceId;
+
+    try {
+        if (!silent) setInvoiceStatus("Saving invoice to database...", "");
+        const response = await invoiceApi("save-invoice", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(invoice)
+        });
+        const result = await response.json();
+        if (!result.success) throw new Error(result.message || "Invoice save failed");
+        currentInvoiceId = result.invoice?.id || currentInvoiceId;
+        setInvoiceStatus("Invoice saved to database.", "success");
+        await loadInvoiceHistory(false);
+        return result.invoice || invoice;
+    } catch (error) {
+        const message = `Invoice was not saved: ${error.message}`;
+        setInvoiceStatus(message, "error");
+        if (!silent) alert(message);
+        return null;
+    }
+}
+
+async function downloadInvoicePdf(invoice = null) {
+    const payload = invoice || await saveInvoiceToDatabase();
+    if (!payload) return;
+
+    try {
+        setInvoiceStatus("Preparing invoice PDF...", "");
+        const response = await invoiceApi("generate-invoice-pdf", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        const blob = await response.blob();
+        downloadBlob(blob, `${safeFileName(payload.invoice_no)}.pdf`);
+        setInvoiceStatus("Invoice PDF downloaded.", "success");
+    } catch (error) {
+        const message = `Invoice PDF was not generated: ${error.message}`;
+        setInvoiceStatus(message, "error");
+        alert(message);
+    }
+}
+
+async function printInvoice() {
+    const saved = await saveInvoiceToDatabase();
+    if (!saved) return;
+
+    const cleanup = () => {
+        document.body.classList.remove("print-invoice-mode");
+        window.removeEventListener("afterprint", cleanup);
+    };
+    document.body.classList.add("print-invoice-mode");
+    window.addEventListener("afterprint", cleanup);
+    window.print();
+}
+
+function renderInvoiceHistory(invoices) {
+    invoiceHistoryCache = invoices;
+    if (!invoices.length) {
+        invoiceEls.invoiceHistoryRows.innerHTML = `<tr><td colspan="5" class="empty-row">No invoices saved in database.</td></tr>`;
+        return;
+    }
+
+    invoiceEls.invoiceHistoryRows.innerHTML = invoices.map(invoice => `
+        <tr>
+            <td>${escapeHtml(invoice.invoice_no || "-")}</td>
+            <td>${escapeHtml(invoice.buyer?.name || "-")}</td>
+            <td>${escapeHtml(invoice.invoice_date || "-")}</td>
+            <td>${formatInvoiceMoney(invoice.grand_total || 0)}</td>
+            <td>
+                <div class="history-actions">
+                    <button type="button" data-invoice-action="edit" data-id="${escapeHtml(invoice.id)}">Edit</button>
+                    <button type="button" data-invoice-action="pdf" data-id="${escapeHtml(invoice.id)}">PDF</button>
+                </div>
+            </td>
+        </tr>
+    `).join("");
+}
+
+async function loadInvoiceHistory(showErrors = true) {
+    try {
+        const response = await invoiceApi("invoices");
+        const result = await response.json();
+        renderInvoiceHistory(Array.isArray(result.invoices) ? result.invoices : []);
+        invoiceHistoryLoaded = true;
+    } catch (error) {
+        if (showErrors) {
+            setInvoiceStatus(`Invoice database unavailable: ${error.message}`, "error");
+        }
+    }
+}
+
+function loadInvoice(invoice) {
+    currentInvoiceId = invoice.id || null;
+    invoiceEls.invoiceNo.value = invoice.invoice_no || nextInvoiceNumber();
+    invoiceEls.invoiceDate.value = invoice.invoice_date || todayIso();
+    invoiceEls.deliveryNote.value = invoice.delivery_note || "";
+    invoiceEls.invoicePaymentTerms.value = invoice.payment_terms || "Immediate";
+    invoiceEls.dispatchThrough.value = invoice.dispatch_through || "";
+    invoiceEls.destination.value = invoice.destination || "";
+    invoiceEls.vehicleNo.value = invoice.vehicle_no || "";
+    invoiceEls.termsOfDelivery.value = invoice.terms_of_delivery || "";
+    invoiceEls.useIgst.checked = Boolean(invoice.use_igst);
+    invoiceEls.cgstRate.value = taxRateValue(invoice.cgst_rate, DEFAULT_TAX_RATES.cgst);
+    invoiceEls.sgstRate.value = taxRateValue(invoice.sgst_rate, DEFAULT_TAX_RATES.sgst);
+    invoiceEls.igstRate.value = taxRateValue(invoice.igst_rate, DEFAULT_TAX_RATES.igst);
+
+    invoiceEls.sellerCompanyName.value = invoice.seller?.name || DEFAULT_SELLER.name;
+    invoiceEls.sellerAddress.value = invoice.seller?.address || DEFAULT_SELLER.address;
+    invoiceEls.sellerGstin.value = invoice.seller?.gstin || DEFAULT_SELLER.gstin;
+    invoiceEls.sellerState.value = invoice.seller?.state || DEFAULT_SELLER.state;
+    invoiceEls.sellerStateCode.value = invoice.seller?.state_code || DEFAULT_SELLER.state_code;
+
+    invoiceEls.buyerName.value = invoice.buyer?.name || "";
+    invoiceEls.buyerAddress.value = invoice.buyer?.address || "";
+    invoiceEls.buyerGstin.value = invoice.buyer?.gstin || "";
+    invoiceEls.buyerState.value = invoice.buyer?.state || "Maharashtra";
+    invoiceEls.buyerStateCode.value = invoice.buyer?.state_code || "27";
+    invoiceEls.shipToName.value = invoice.ship_to?.name || "";
+    invoiceEls.shipToAddress.value = invoice.ship_to?.address || "";
+    invoiceEls.shipToGstin.value = invoice.ship_to?.gstin || "";
+    invoiceEls.shipToState.value = invoice.ship_to?.state || "Maharashtra";
+    invoiceEls.shipToStateCode.value = invoice.ship_to?.state_code || "27";
+
+    renderInvoiceRows(invoice.items?.length ? invoice.items : defaultInvoiceRows());
+
+    invoiceEls.invoiceAccountHolder.value = invoice.bank_details?.account_holder || COMPANY.accountHolder;
+    invoiceEls.invoiceBankName.value = invoice.bank_details?.bank_name || COMPANY.bankName;
+    invoiceEls.invoiceAccountNo.value = invoice.bank_details?.account_no || COMPANY.accountNo;
+    invoiceEls.invoiceIfsc.value = invoice.bank_details?.ifsc || COMPANY.ifsc;
+    invoiceEls.invoiceBranch.value = invoice.bank_details?.branch || COMPANY.branch;
+    invoiceEls.invoiceDeclaration.value = invoice.declaration || DEFAULT_INVOICE_DECLARATION;
+    updateInvoiceUi();
+    setActiveModule("invoice");
+}
+
+function resetInvoice() {
+    currentInvoiceId = null;
+    invoiceEls.form.reset();
+    applySellerDefaults();
+    invoiceEls.invoiceNo.value = nextInvoiceNumber();
+    invoiceEls.invoiceDate.value = todayIso();
+    invoiceEls.invoicePaymentTerms.value = "Immediate";
+    invoiceEls.buyerState.value = "Maharashtra";
+    invoiceEls.buyerStateCode.value = "27";
+    invoiceEls.shipToState.value = "Maharashtra";
+    invoiceEls.shipToStateCode.value = "27";
+    invoiceEls.cgstRate.value = DEFAULT_TAX_RATES.cgst;
+    invoiceEls.sgstRate.value = DEFAULT_TAX_RATES.sgst;
+    invoiceEls.igstRate.value = DEFAULT_TAX_RATES.igst;
+    invoiceEls.invoiceAccountHolder.value = COMPANY.accountHolder;
+    invoiceEls.invoiceBankName.value = COMPANY.bankName;
+    invoiceEls.invoiceAccountNo.value = COMPANY.accountNo;
+    invoiceEls.invoiceIfsc.value = COMPANY.ifsc;
+    invoiceEls.invoiceBranch.value = COMPANY.branch;
+    invoiceEls.invoiceDeclaration.value = DEFAULT_INVOICE_DECLARATION;
+    renderInvoiceRows();
+    setInvoiceStatus("");
+    updateInvoiceUi();
+}
+
+function setActiveModule(moduleName) {
+    document.querySelectorAll(".module-button").forEach(button => {
+        button.classList.toggle("active", button.dataset.module === moduleName);
+    });
+    document.querySelectorAll(".module-panel").forEach(panel => {
+        panel.classList.toggle("active", panel.dataset.module === moduleName);
+    });
+
+    const quotationOnly = moduleName === "quotation";
+    document.querySelector(".quotation-tab-nav").hidden = !quotationOnly;
+    document.querySelector(".sidebar-actions").hidden = !quotationOnly;
+
+    if (moduleName === "invoice") {
+        updateInvoiceUi();
+        if (!invoiceHistoryLoaded) loadInvoiceHistory(false);
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
 function handleGenerate() {
     const quotation = saveCurrentQuotation();
     if (!quotation) return;
@@ -683,6 +1502,10 @@ function handleGenerate() {
 
 document.querySelectorAll(".tab-button").forEach(button => {
     button.addEventListener("click", () => setActiveTab(button.dataset.tab));
+});
+
+document.querySelectorAll(".module-button").forEach(button => {
+    button.addEventListener("click", () => setActiveModule(button.dataset.module));
 });
 
 document.querySelectorAll("[data-go-tab]").forEach(button => {
@@ -715,6 +1538,44 @@ document.querySelectorAll("[data-go-tab]").forEach(button => {
     });
 });
 
+["input", "change"].forEach(eventName => {
+    [
+        invoiceEls.sellerCompanyName,
+        invoiceEls.sellerAddress,
+        invoiceEls.sellerGstin,
+        invoiceEls.sellerState,
+        invoiceEls.sellerStateCode,
+        invoiceEls.useIgst,
+        invoiceEls.invoiceNo,
+        invoiceEls.invoiceDate,
+        invoiceEls.deliveryNote,
+        invoiceEls.invoicePaymentTerms,
+        invoiceEls.dispatchThrough,
+        invoiceEls.destination,
+        invoiceEls.vehicleNo,
+        invoiceEls.termsOfDelivery,
+        invoiceEls.cgstRate,
+        invoiceEls.sgstRate,
+        invoiceEls.igstRate,
+        invoiceEls.buyerName,
+        invoiceEls.buyerAddress,
+        invoiceEls.buyerGstin,
+        invoiceEls.buyerState,
+        invoiceEls.buyerStateCode,
+        invoiceEls.shipToName,
+        invoiceEls.shipToAddress,
+        invoiceEls.shipToGstin,
+        invoiceEls.shipToState,
+        invoiceEls.shipToStateCode,
+        invoiceEls.invoiceAccountHolder,
+        invoiceEls.invoiceBankName,
+        invoiceEls.invoiceAccountNo,
+        invoiceEls.invoiceIfsc,
+        invoiceEls.invoiceBranch,
+        invoiceEls.invoiceDeclaration
+    ].forEach(input => input.addEventListener(eventName, updateInvoiceUi));
+});
+
 els.generateQuotation.addEventListener("click", handleGenerate);
 els.sideGenerate.addEventListener("click", handleGenerate);
 els.newQuotation.addEventListener("click", resetQuotation);
@@ -743,6 +1604,17 @@ els.downloadWord.addEventListener("click", () => downloadExport("word"));
 els.downloadExcel.addEventListener("click", () => downloadExport("excel"));
 els.shareWhatsapp.addEventListener("click", () => openWhatsapp());
 
+invoiceEls.newInvoice.addEventListener("click", resetInvoice);
+invoiceEls.saveInvoice.addEventListener("click", () => saveInvoiceToDatabase());
+invoiceEls.printInvoice.addEventListener("click", printInvoice);
+invoiceEls.downloadInvoicePdf.addEventListener("click", () => downloadInvoicePdf());
+invoiceEls.saveSellerDefaults.addEventListener("click", saveSellerDefaults);
+invoiceEls.addInvoiceRow.addEventListener("click", () => {
+    createInvoiceRow({ sl_no: String(invoiceEls.invoiceItemRows.querySelectorAll("tr").length + 1), unit: "NOS", quantity: 1, rate: 0 });
+    updateInvoiceUi();
+});
+invoiceEls.refreshInvoiceHistory.addEventListener("click", () => loadInvoiceHistory(true));
+
 els.specRows.addEventListener("click", event => {
     const button = event.target.closest(".row-remove");
     if (!button) return;
@@ -752,6 +1624,20 @@ els.specRows.addEventListener("click", event => {
 
 els.specRows.addEventListener("input", () => renderPreview(buildDraft()));
 els.priceRows.addEventListener("input", () => renderPreview(buildDraft()));
+
+invoiceEls.invoiceItemRows.addEventListener("click", event => {
+    const button = event.target.closest(".row-remove");
+    if (!button) return;
+    const rows = invoiceEls.invoiceItemRows.querySelectorAll("tr");
+    if (rows.length === 1) {
+        renderInvoiceRows();
+    } else {
+        button.closest("tr").remove();
+    }
+    updateInvoiceUi();
+});
+
+invoiceEls.invoiceItemRows.addEventListener("input", updateInvoiceUi);
 
 els.historyRows.addEventListener("click", event => {
     const button = event.target.closest("button[data-action]");
@@ -773,6 +1659,16 @@ els.historyRows.addEventListener("click", event => {
     if (button.dataset.action === "whatsapp") openWhatsapp(quotation);
 });
 
+invoiceEls.invoiceHistoryRows.addEventListener("click", event => {
+    const button = event.target.closest("button[data-invoice-action]");
+    if (!button) return;
+    const invoice = invoiceHistoryCache.find(item => item.id === button.dataset.id);
+    if (!invoice) return;
+
+    if (button.dataset.invoiceAction === "edit") loadInvoice(invoice);
+    if (button.dataset.invoiceAction === "pdf") downloadInvoicePdf(invoice);
+});
+
 els.clearHistory.addEventListener("click", () => {
     if (!confirm("Clear all saved quotations from this browser?")) return;
     localStorage.removeItem(STORAGE_KEY);
@@ -780,4 +1676,5 @@ els.clearHistory.addEventListener("click", () => {
 });
 
 resetQuotation();
+resetInvoice();
 renderHistory();

@@ -1,0 +1,4 @@
+sgse_app.db
+__pycache__/
+*.pyc
+uvicorn.*.log

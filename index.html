@@ -17,7 +17,12 @@
                 </div>
             </div>
 
-            <nav class="tab-nav" aria-label="Quotation tabs">
+            <nav class="module-nav" aria-label="Main sections">
+                <button class="module-button active" type="button" data-module="quotation">Quotation Generator</button>
+                <button class="module-button" type="button" data-module="invoice">Invoice Generator</button>
+            </nav>
+
+            <nav class="tab-nav quotation-tab-nav" aria-label="Quotation tabs">
                 <button class="tab-button active" type="button" data-tab="details">Quotation Details</button>
                 <button class="tab-button" type="button" data-tab="specification">System Specification</button>
                 <button class="tab-button" type="button" data-tab="price">Price Details</button>
@@ -32,6 +37,7 @@
         </aside>
 
         <main class="workspace">
+            <section class="module-panel quotation-module active" data-module="quotation">
             <header class="topbar">
                 <div class="title-lockup">
                     <img src="assets/logo.png" alt="Company logo">
@@ -225,7 +231,7 @@
                 </div>
 
                 <div class="table-scroll">
-                    <table class="history-table">
+                    <table class="history-table quotation-history-table">
                         <thead>
                             <tr>
                                 <th>Quotation Number</th>
@@ -242,6 +248,338 @@
                         </tbody>
                     </table>
                 </div>
+            </section>
+            </section>
+
+            <section class="module-panel invoice-module" data-module="invoice">
+                <header class="topbar">
+                    <div class="title-lockup">
+                        <img src="assets/logo.png" alt="Company logo">
+                        <div>
+                            <p>SHREE GANESH SOLAR ENERGY</p>
+                            <h1>Invoice Generator</h1>
+                        </div>
+                    </div>
+                    <div class="quote-number-card">
+                        <span>Invoice No.</span>
+                        <strong id="invoiceNumberDisplay">SGSE/INV/2026/0001</strong>
+                    </div>
+                </header>
+
+                <section class="summary-grid" aria-label="Invoice summary">
+                    <div>
+                        <span>Buyer</span>
+                        <strong id="invoiceSummaryBuyer">-</strong>
+                    </div>
+                    <div>
+                        <span>Date</span>
+                        <strong id="invoiceSummaryDate">-</strong>
+                    </div>
+                    <div>
+                        <span>Total Quantity</span>
+                        <strong id="invoiceSummaryQty">0</strong>
+                    </div>
+                    <div>
+                        <span>Grand Total</span>
+                        <strong id="invoiceSummaryTotal">Rs. 0.00</strong>
+                    </div>
+                </section>
+
+                <form id="invoiceForm" class="invoice-form">
+                    <section class="invoice-card">
+                        <div class="panel-heading">
+                            <h2>Invoice Generator</h2>
+                            <div class="inline-actions">
+                                <button class="secondary-action" type="button" id="newInvoice">New Invoice</button>
+                                <button class="primary-action" type="button" id="saveInvoice">Save Invoice</button>
+                                <button class="secondary-action" type="button" id="printInvoice">Print Invoice</button>
+                                <button class="secondary-action" type="button" id="downloadInvoicePdf">Download PDF</button>
+                            </div>
+                        </div>
+                        <div id="invoiceDbStatus" class="status-line" aria-live="polite"></div>
+                    </section>
+
+                    <section class="invoice-card">
+                        <div class="panel-heading">
+                            <h2>Seller / Company Details</h2>
+                            <button class="secondary-action" type="button" id="saveSellerDefaults">Save Seller Defaults</button>
+                        </div>
+                        <div class="form-grid">
+                            <label>
+                                Company Name
+                                <input type="text" id="sellerCompanyName" value="SHREE GANESH SOLAR ENERGY" required>
+                            </label>
+                            <label>
+                                GSTIN/UIN
+                                <input type="text" id="sellerGstin" value="27DSQPB6025M1ZC" required>
+                            </label>
+                            <label>
+                                State
+                                <input type="text" id="sellerState" value="Maharashtra" required>
+                            </label>
+                            <label>
+                                State Code
+                                <input type="text" id="sellerStateCode" value="27" required>
+                            </label>
+                            <label class="wide-field">
+                                Address
+                                <textarea id="sellerAddress" rows="3" required>Ground, Plot No 1764/29, C/O Mitaram Bhude, Bhandewadi Pardi, Near Hanuman Mandir, Hanuman Nagar, Nagpur</textarea>
+                            </label>
+                        </div>
+                    </section>
+
+                    <section class="invoice-card">
+                        <div class="panel-heading">
+                            <h2>Invoice Details</h2>
+                            <label class="check-label">
+                                <input type="checkbox" id="useIgst">
+                                <span>Use IGST</span>
+                            </label>
+                        </div>
+                        <div class="form-grid">
+                            <label>
+                                Invoice No
+                                <input type="text" id="invoiceNo" required>
+                            </label>
+                            <label>
+                                Date
+                                <input type="date" id="invoiceDate" required>
+                            </label>
+                            <label>
+                                Delivery Note
+                                <input type="text" id="deliveryNote">
+                            </label>
+                            <label>
+                                Payment Terms
+                                <input type="text" id="invoicePaymentTerms" value="Immediate">
+                            </label>
+                            <label>
+                                Dispatch Through
+                                <input type="text" id="dispatchThrough">
+                            </label>
+                            <label>
+                                Destination
+                                <input type="text" id="destination">
+                            </label>
+                            <label>
+                                Vehicle No
+                                <input type="text" id="vehicleNo">
+                            </label>
+                            <label>
+                                Terms of Delivery
+                                <input type="text" id="termsOfDelivery">
+                            </label>
+                            <label>
+                                CGST %
+                                <input type="number" id="cgstRate" min="0" max="100" step="0.01" value="9">
+                            </label>
+                            <label>
+                                SGST %
+                                <input type="number" id="sgstRate" min="0" max="100" step="0.01" value="9">
+                            </label>
+                            <label>
+                                IGST %
+                                <input type="number" id="igstRate" min="0" max="100" step="0.01" value="18">
+                            </label>
+                        </div>
+                    </section>
+
+                    <section class="invoice-card party-card">
+                        <div>
+                            <h2>Buyer Bill To</h2>
+                            <div class="form-grid single-column">
+                                <label>
+                                    Buyer Name
+                                    <input type="text" id="buyerName" required>
+                                </label>
+                                <label>
+                                    GSTIN
+                                    <input type="text" id="buyerGstin">
+                                </label>
+                                <label>
+                                    State
+                                    <input type="text" id="buyerState" value="Maharashtra">
+                                </label>
+                                <label>
+                                    State Code
+                                    <input type="text" id="buyerStateCode" value="27">
+                                </label>
+                                <label>
+                                    Address
+                                    <textarea id="buyerAddress" rows="4" required></textarea>
+                                </label>
+                            </div>
+                        </div>
+                        <div>
+                            <h2>Ship To</h2>
+                            <div class="form-grid single-column">
+                                <label>
+                                    Ship To Name
+                                    <input type="text" id="shipToName">
+                                </label>
+                                <label>
+                                    GSTIN
+                                    <input type="text" id="shipToGstin">
+                                </label>
+                                <label>
+                                    State
+                                    <input type="text" id="shipToState" value="Maharashtra">
+                                </label>
+                                <label>
+                                    State Code
+                                    <input type="text" id="shipToStateCode" value="27">
+                                </label>
+                                <label>
+                                    Address
+                                    <textarea id="shipToAddress" rows="4"></textarea>
+                                </label>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="invoice-card">
+                        <div class="panel-heading">
+                            <h2>Item Details</h2>
+                            <button class="secondary-action" type="button" id="addInvoiceRow">Add Row</button>
+                        </div>
+                        <div class="table-scroll">
+                            <table class="editable-table invoice-items-table">
+                                <thead>
+                                    <tr>
+                                        <th>Sl No</th>
+                                        <th>Description</th>
+                                        <th>HSN/SAC</th>
+                                        <th>Quantity</th>
+                                        <th>Unit</th>
+                                        <th>Rate</th>
+                                        <th>Amount</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="invoiceItemRows"></tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <section class="invoice-card invoice-totals-card">
+                        <div>
+                            <h2>Tax Summary</h2>
+                            <div class="table-scroll">
+                                <table class="history-table tax-summary-table">
+                                    <thead>
+                                        <tr>
+                                            <th>HSN/SAC</th>
+                                            <th>Taxable Value</th>
+                                            <th id="invoiceTaxCgstHeader">CGST 9%</th>
+                                            <th id="invoiceTaxSgstHeader">SGST 9%</th>
+                                            <th id="invoiceTaxIgstHeader">IGST 18%</th>
+                                            <th>Total Tax</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="invoiceTaxSummaryRows">
+                                        <tr><td colspan="6" class="empty-row">No item rows.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="totals-box">
+                            <label>
+                                Total Quantity
+                                <input type="text" id="invoiceTotalQuantity" readonly>
+                            </label>
+                            <label>
+                                Subtotal
+                                <input type="text" id="invoiceSubtotal" readonly>
+                            </label>
+                            <label>
+                                <span id="invoiceCgstLabel">CGST 9%</span>
+                                <input type="text" id="invoiceCgst" readonly>
+                            </label>
+                            <label>
+                                <span id="invoiceSgstLabel">SGST 9%</span>
+                                <input type="text" id="invoiceSgst" readonly>
+                            </label>
+                            <label>
+                                <span id="invoiceIgstLabel">IGST 18%</span>
+                                <input type="text" id="invoiceIgst" readonly>
+                            </label>
+                            <label>
+                                Round Off
+                                <input type="text" id="invoiceRoundOff" readonly>
+                            </label>
+                            <label>
+                                Grand Total
+                                <input type="text" id="invoiceGrandTotal" readonly>
+                            </label>
+                            <label>
+                                Amount in Words
+                                <textarea id="invoiceAmountWords" rows="3" readonly></textarea>
+                            </label>
+                        </div>
+                    </section>
+
+                    <section class="invoice-card">
+                        <div class="panel-heading">
+                            <h2>Bank Details & Declaration</h2>
+                        </div>
+                        <div class="form-grid">
+                            <label>
+                                Account Holder
+                                <input type="text" id="invoiceAccountHolder" value="SHREE GANESH SOLAR ENERGY">
+                            </label>
+                            <label>
+                                Bank Name
+                                <input type="text" id="invoiceBankName" value="INDIAN BANK">
+                            </label>
+                            <label>
+                                Account No
+                                <input type="text" id="invoiceAccountNo" value="8275515270">
+                            </label>
+                            <label>
+                                IFSC
+                                <input type="text" id="invoiceIfsc" value="IDIB000R558">
+                            </label>
+                            <label>
+                                Branch
+                                <input type="text" id="invoiceBranch" value="DESHPANDE LAYOUT, NAGPUR">
+                            </label>
+                            <label class="wide-field">
+                                Declaration
+                                <textarea id="invoiceDeclaration" rows="3">We declare that this invoice shows the actual price of the goods and services described and that all particulars are true and correct.</textarea>
+                            </label>
+                        </div>
+                    </section>
+
+                    <section class="invoice-card invoice-preview-panel">
+                        <div class="panel-heading">
+                            <h2>Invoice Preview</h2>
+                        </div>
+                        <div id="invoicePreview" class="invoice-preview"></div>
+                    </section>
+
+                    <section class="invoice-card">
+                        <div class="panel-heading">
+                            <h2>Saved Invoices</h2>
+                            <button class="secondary-action" type="button" id="refreshInvoiceHistory">Refresh</button>
+                        </div>
+                        <div class="table-scroll">
+                            <table class="history-table invoice-history-table">
+                                <thead>
+                                    <tr>
+                                        <th>Invoice No</th>
+                                        <th>Buyer</th>
+                                        <th>Date</th>
+                                        <th>Grand Total</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="invoiceHistoryRows">
+                                    <tr><td colspan="5" class="empty-row">No invoices loaded.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </form>
             </section>
         </main>
     </div>
